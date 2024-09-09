@@ -25,16 +25,30 @@ class Web3Client {
   /// [httpClient] will be used to send requests to the rpc server.
   /// Am isolate will be used to perform expensive operations, such as signing
   /// transactions or computing private keys.
-  Web3Client(String url, Client httpClient, {SocketConnector? socketConnector})
-      : this.custom(JsonRPC(url, httpClient), socketConnector: socketConnector);
+  Web3Client(
+    String url,
+    Client httpClient, {
+    SocketConnector? socketConnector,
+    String rpcMethodPrefix = 'eth_',
+  }) : this.custom(
+          JsonRPC(url, httpClient),
+          socketConnector: socketConnector,
+          rpcMethodPrefix: rpcMethodPrefix,
+        );
 
-  Web3Client.custom(RpcService rpc, {this.socketConnector}) : _jsonRpc = rpc {
+  Web3Client.custom(
+    RpcService rpc, {
+    this.socketConnector,
+    this.rpcMethodPrefix = 'eth_',
+  }) : _jsonRpc = rpc {
     _filters = _FilterEngine(this);
   }
 
   static const BlockNum _defaultBlock = BlockNum.current();
 
   final RpcService _jsonRpc;
+
+  final String rpcMethodPrefix;
 
   /// Some ethereum nodes support an event channel over websockets. Web3dart
   /// will use the [StreamChannel] returned by this function as a socket to send
@@ -71,7 +85,7 @@ class Web3Client {
 
     final socket = socketConnector!();
     _streamRpcPeer = rpc.Peer(socket)
-      ..registerMethod('eth_subscription', _filters.handlePubSubNotification);
+      ..registerMethod('${rpcMethodPrefix}subscription', _filters.handlePubSubNotification);
 
     _streamRpcPeer?.listen().then((dynamic _) {
       // .listen() will complete when the socket is closed, so reset client
@@ -112,7 +126,7 @@ class Web3Client {
   }
 
   Future<BigInt> getChainId() {
-    return makeRPCCall<String>('eth_chainId').then(BigInt.parse);
+    return makeRPCCall<String>('${rpcMethodPrefix}chainId').then(BigInt.parse);
   }
 
   /// Returns true if the node is actively listening for network connections.
@@ -128,7 +142,7 @@ class Web3Client {
 
   /// Returns the version of the Ethereum-protocol the client is using.
   Future<int> getEtherProtocolVersion() async {
-    final hex = await makeRPCCall<String>('eth_protocolVersion');
+    final hex = await makeRPCCall<String>('${rpcMethodPrefix}protocolVersion');
     return hexToInt(hex).toInt();
   }
 
@@ -137,7 +151,7 @@ class Web3Client {
   ///
   /// If so, progress information is returned via [SyncInformation].
   Future<SyncInformation> getSyncStatus() async {
-    final data = await makeRPCCall<dynamic>('eth_syncing');
+    final data = await makeRPCCall<dynamic>('${rpcMethodPrefix}syncing');
 
     if (data is Map) {
       final startingBlock = hexToInt(data['startingBlock'] as String).toInt();
@@ -151,18 +165,18 @@ class Web3Client {
   }
 
   Future<EthereumAddress> coinbaseAddress() async {
-    final hex = await makeRPCCall<String>('eth_coinbase');
+    final hex = await makeRPCCall<String>('${rpcMethodPrefix}coinbase');
     return EthereumAddress.fromHex(hex);
   }
 
   /// Returns true if the connected client is currently mining, false if not.
   Future<bool> isMining() {
-    return makeRPCCall('eth_mining');
+    return makeRPCCall('${rpcMethodPrefix}mining');
   }
 
   /// Returns the amount of hashes per second the connected node is mining with.
   Future<int> getMiningHashrate() {
-    return makeRPCCall<String>('eth_hashrate').then((s) => hexToInt(s).toInt());
+    return makeRPCCall<String>('${rpcMethodPrefix}hashrate').then((s) => hexToInt(s).toInt());
   }
 
   /// Returns the amount of Ether typically needed to pay for one unit of gas.
@@ -170,14 +184,14 @@ class Web3Client {
   /// Although not strictly defined, this value will typically be a sensible
   /// amount to use.
   Future<EtherAmount> getGasPrice() async {
-    final data = await makeRPCCall<String>('eth_gasPrice');
+    final data = await makeRPCCall<String>('${rpcMethodPrefix}gasPrice');
 
     return EtherAmount.fromBigInt(EtherUnit.wei, hexToInt(data));
   }
 
   /// Returns the number of the most recent block on the chain.
   Future<int> getBlockNumber() {
-    return makeRPCCall<String>('eth_blockNumber')
+    return makeRPCCall<String>('${rpcMethodPrefix}blockNumber')
         .then((s) => hexToInt(s).toInt());
   }
 
@@ -186,17 +200,17 @@ class Web3Client {
     bool isContainFullObj = true,
   }) {
     return makeRPCCall<Map<String, dynamic>>(
-      'eth_getBlockByNumber',
+      '${rpcMethodPrefix}getBlockByNumber',
       [blockNumber, isContainFullObj],
     ).then((json) => BlockInformation.fromJson(json));
   }
 
-  Future<Map<String,dynamic>> getBlockInformationRaw({
+  Future<Map<String, dynamic>> getBlockInformationRaw({
     String blockNumber = 'latest',
     bool isContainFullObj = true,
   }) {
     return makeRPCCall<Map<String, dynamic>>(
-      'eth_getBlockByNumber',
+      '${rpcMethodPrefix}getBlockByNumber',
       [blockNumber, isContainFullObj],
     ).then((json) => json);
   }
@@ -208,7 +222,7 @@ class Web3Client {
   Future<EtherAmount> getBalance(EthereumAddress address, {BlockNum? atBlock}) {
     final blockParam = _getBlockParam(atBlock);
 
-    return makeRPCCall<String>('eth_getBalance', [address.hex, blockParam])
+    return makeRPCCall<String>('${rpcMethodPrefix}getBalance', [address.hex, blockParam])
         .then((data) {
       return EtherAmount.fromBigInt(EtherUnit.wei, hexToInt(data));
     });
@@ -227,7 +241,7 @@ class Web3Client {
   }) {
     final blockParam = _getBlockParam(atBlock);
 
-    return makeRPCCall<String>('eth_getStorageAt', [
+    return makeRPCCall<String>('${rpcMethodPrefix}getStorageAt', [
       address.hex,
       '0x${position.toRadixString(16)}',
       blockParam,
@@ -245,7 +259,7 @@ class Web3Client {
     final blockParam = _getBlockParam(atBlock);
 
     return makeRPCCall<String>(
-      'eth_getTransactionCount',
+      '${rpcMethodPrefix}getTransactionCount',
       [address.hex, blockParam],
     ).then((hex) => hexToInt(hex).toInt());
   }
@@ -256,7 +270,7 @@ class Web3Client {
     String transactionHash,
   ) async {
     final map = await makeRPCCall<Map<String, dynamic>?>(
-      'eth_getTransactionByHash',
+      '${rpcMethodPrefix}getTransactionByHash',
       [transactionHash],
     );
     if (map == null) return null;
@@ -266,7 +280,7 @@ class Web3Client {
   /// Returns an receipt of a transaction based on its hash.
   Future<TransactionReceipt?> getTransactionReceipt(String hash) {
     return makeRPCCall<Map<String, dynamic>?>(
-      'eth_getTransactionReceipt',
+      '${rpcMethodPrefix}getTransactionReceipt',
       [hash],
     ).then((s) => s != null ? TransactionReceipt.fromMap(s) : null);
   }
@@ -277,7 +291,7 @@ class Web3Client {
   /// historical data. By default, [BlockNum.current] will be used.
   Future<Uint8List> getCode(EthereumAddress address, {BlockNum? atBlock}) {
     return makeRPCCall<String>(
-      'eth_getCode',
+      '${rpcMethodPrefix}getCode',
       [address.hex, _getBlockParam(atBlock)],
     ).then(hexToBytes);
   }
@@ -290,7 +304,7 @@ class Web3Client {
   Future<List<FilterEvent>> getLogs(FilterOptions options) {
     final filter = _EventFilter(options);
     return makeRPCCall<List<dynamic>>(
-      'eth_getLogs',
+      '${rpcMethodPrefix}getLogs',
       [filter._createParamsObject(true)],
     ).then((logs) {
       return logs.map(filter.parseChanges).toList();
@@ -306,7 +320,7 @@ class Web3Client {
     final blockParam = _getBlockParam(atBlock);
 
     return makeRPCCall<Map<String, dynamic>>(
-      'eth_feeHistory',
+      '${rpcMethodPrefix}feeHistory',
       [blockCount, blockParam, rewardPercentiles],
     ).then((history) {
       return history.map((key, dynamic value) {
@@ -351,7 +365,7 @@ class Web3Client {
 
     if (transaction.isEIP1559) {
       signed = prependTransactionType(0x02, signed);
-    } else if(transaction.isEIP4844){
+    } else if (transaction.isEIP4844) {
       signed = prependTransactionType(0x03, signed);
     }
     return sendRawTransaction(signed);
@@ -365,7 +379,7 @@ class Web3Client {
   /// included in a mined block, can be used to obtain detailed information
   /// about the transaction.
   Future<String> sendRawTransaction(Uint8List signedTransaction) async {
-    return makeRPCCall('eth_sendRawTransaction', [
+    return makeRPCCall('${rpcMethodPrefix}sendRawTransaction', [
       bytesToHex(signedTransaction, include0x: true, padToEvenLength: true),
     ]);
   }
@@ -441,7 +455,7 @@ class Web3Client {
     @Deprecated('Parameter is ignored') BlockNum? atBlock,
   }) async {
     final amountHex = await makeRPCCall<String>(
-      'eth_estimateGas',
+      '${rpcMethodPrefix}estimateGas',
       [
         {
           if (sender != null) 'from': sender.hex,
@@ -493,7 +507,7 @@ class Web3Client {
       if (sender != null) 'from': sender.hex,
     };
 
-    return makeRPCCall<String>('eth_call', [call, _getBlockParam(atBlock)]);
+    return makeRPCCall<String>('${rpcMethodPrefix}call', [call, _getBlockParam(atBlock)]);
   }
 
   /// Listens for new blocks that are added to the chain. The stream will emit
