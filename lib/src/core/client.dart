@@ -32,21 +32,25 @@ class Web3Client {
     String rpcMethodPrefix = 'eth_',
   }) : this.custom(
           JsonRPC(url, httpClient),
+          url,
           socketConnector: socketConnector,
           rpcMethodPrefix: rpcMethodPrefix,
         );
 
   Web3Client.custom(
-    RpcService rpc, {
+    RpcService rpc,
+    String url, {
     this.socketConnector,
     this.rpcMethodPrefix = 'eth_',
-  }) : _jsonRpc = rpc {
+  })  : /*_jsonRpc = rpc, */
+        _provider = Provider.fromUri(Uri.parse(url)) {
     _filters = _FilterEngine(this);
   }
 
   static const BlockNum _defaultBlock = BlockNum.current();
 
-  final RpcService _jsonRpc;
+  // final RpcService _jsonRpc;
+  final Provider _provider;
 
   final String rpcMethodPrefix;
 
@@ -62,9 +66,9 @@ class Web3Client {
   ///Whether errors, handled or not, should be printed to the console.
   bool printErrors = false;
 
-  Future<T> makeRPCCall<T>(String function, [List<dynamic>? params]) async {
+  Future<T> makeRPCCall<T>(String function, [List<dynamic> params = const []]) async {
     try {
-      final data = await _jsonRpc.call(function, params);
+      final data = await _provider.send(function, params);
       // ignore: only_throw_errors
       if (data is Error || data is Exception) throw data;
 
@@ -85,7 +89,8 @@ class Web3Client {
 
     final socket = socketConnector!();
     _streamRpcPeer = rpc.Peer(socket)
-      ..registerMethod('${rpcMethodPrefix}subscription', _filters.handlePubSubNotification);
+      ..registerMethod(
+          '${rpcMethodPrefix}subscription', _filters.handlePubSubNotification,);
 
     _streamRpcPeer?.listen().then((dynamic _) {
       // .listen() will complete when the socket is closed, so reset client
@@ -176,7 +181,8 @@ class Web3Client {
 
   /// Returns the amount of hashes per second the connected node is mining with.
   Future<int> getMiningHashrate() {
-    return makeRPCCall<String>('${rpcMethodPrefix}hashrate').then((s) => hexToInt(s).toInt());
+    return makeRPCCall<String>('${rpcMethodPrefix}hashrate')
+        .then((s) => hexToInt(s).toInt());
   }
 
   /// Returns the amount of Ether typically needed to pay for one unit of gas.
@@ -222,8 +228,8 @@ class Web3Client {
   Future<EtherAmount> getBalance(EthereumAddress address, {BlockNum? atBlock}) {
     final blockParam = _getBlockParam(atBlock);
 
-    return makeRPCCall<String>('${rpcMethodPrefix}getBalance', [address.hex, blockParam])
-        .then((data) {
+    return makeRPCCall<String>(
+        '${rpcMethodPrefix}getBalance', [address.hex, blockParam],).then((data) {
       return EtherAmount.fromBigInt(EtherUnit.wei, hexToInt(data));
     });
   }
@@ -476,9 +482,10 @@ class Web3Client {
     return hexToInt(amountHex);
   }
 
-  Future<List<eip1559.Fee>> getGasInEIP1559() async {
-    return eip1559.getGasInEIP1559(_jsonRpc.url);
-  }
+  // 不需要此方法
+  // Future<List<eip1559.Fee>> getGasInEIP1559() async {
+  //   return eip1559.getGasInEIP1559(_jsonRpc.url);
+  // }
 
   /// Sends a raw method call to a smart contract.
   ///
@@ -507,7 +514,8 @@ class Web3Client {
       if (sender != null) 'from': sender.hex,
     };
 
-    return makeRPCCall<String>('${rpcMethodPrefix}call', [call, _getBlockParam(atBlock)]);
+    return makeRPCCall<String>(
+        '${rpcMethodPrefix}call', [call, _getBlockParam(atBlock)],);
   }
 
   /// Listens for new blocks that are added to the chain. The stream will emit

@@ -283,7 +283,7 @@ class _FilterEngine {
   final List<_InstantiatedFilter> _filters = [];
   final Web3Client _client;
 
-  RpcService get _rpc => _client._jsonRpc;
+  Provider get _rpc => _client._provider;
 
   Timer? _ticker;
   bool _isRefreshing = false;
@@ -318,7 +318,7 @@ class _FilterEngine {
     final request = filter.filter.create();
 
     try {
-      final response = await _rpc.call(request.method, request.params);
+      final response = await _rpc.send(request.method, request.params);
       filter.id = response.result as String;
     } on RPCError catch (e, s) {
       filter._controller.addError(e, s);
@@ -356,7 +356,7 @@ class _FilterEngine {
 
       for (final filter in filterSnapshot) {
         final updatedData =
-            await _rpc.call('eth_getFilterChanges', [filter.id]);
+            await _rpc.send('eth_getFilterChanges', [filter.id]);
 
         for (final payload in updatedData.result) {
           if (!filter._controller.isClosed) {
@@ -402,7 +402,7 @@ class _FilterEngine {
       final connection = _client._connectWithPeer();
       await connection?.sendRequest('eth_unsubscribe', [filter.id]);
     } else {
-      await _rpc.call('eth_uninstallFilter', [filter.id]);
+      await _rpc.send('eth_uninstallFilter', [filter.id]);
     }
   }
 

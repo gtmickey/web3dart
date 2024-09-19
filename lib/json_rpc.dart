@@ -81,13 +81,16 @@ class JsonRPC extends RpcService {
 /// and the corresponding result as sent by the server.
 class RPCResponse {
   /// Constructor.
-  const RPCResponse(this.id, this.result);
+  const RPCResponse(this.id, this.result, {this.error});
 
   /// Id.
   final int id;
 
   /// Result.
   final dynamic result;
+
+  /// Error.
+  final dynamic error;
 }
 
 /// Exception thrown when an the server returns an error code to an rpc request.
