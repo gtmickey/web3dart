@@ -2,10 +2,10 @@ import 'dart:async' show Future, Completer, StreamController, FutureOr;
 import 'dart:convert' show jsonEncode, jsonDecode;
 
 import 'package:http/http.dart' as http;
+import 'package:web3dart/gt_web3_http_provider.dart';
 import 'package:web3dart/json_rpc.dart';
 import 'package:web_socket_channel/status.dart' as status;
-import 'package:web_socket_channel/web_socket_channel.dart'
-    show WebSocketChannel;
+import 'package:web_socket_channel/web_socket_channel.dart' show WebSocketChannel;
 
 class SubscriptionResponse<R> {
   SubscriptionResponse({required this.id, required this.stream});
@@ -32,7 +32,8 @@ abstract class Provider {
 
   factory Provider.fromUri(Uri uri) {
     if (uri.scheme == 'http' || uri.scheme == 'https') {
-      return HttpProvider(uri);
+      // 替换为 Gate 需要加签的 HTTP Provider
+      return GTHTTPProvider.isEnabled() ? GTHTTPProvider(uri) : HttpProvider(uri);
     }
     if (uri.scheme == 'ws' || uri.scheme == 'wss') {
       return WsProvider(uri);
@@ -209,8 +210,7 @@ class WsProvider extends Provider {
       (message) =>
           !message.containsKey('id') &&
           message.containsKey('params') &&
-          (message['params'] as Map<String, dynamic>)
-              .containsKey('subscription'),
+          (message['params'] as Map<String, dynamic>).containsKey('subscription'),
     )
         .map((message) {
       final method = message['method'] as String;
@@ -224,8 +224,7 @@ class WsProvider extends Provider {
         result: result,
       );
     }).listen((message) {
-      final StreamController? controller =
-          getSubscriptionController(message.subscription);
+      final StreamController? controller = getSubscriptionController(message.subscription);
       controller?.add(message);
     });
 
