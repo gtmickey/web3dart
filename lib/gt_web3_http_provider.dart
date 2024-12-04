@@ -20,7 +20,9 @@ final class GTHTTPProvider extends Provider {
         'method': method,
         'params': params,
       },
-    );
+    ).then((value) {
+      return (value['data'] as Map).cast();
+    });
     if (data.containsKey('error')) {
       final error = data['error'];
 
