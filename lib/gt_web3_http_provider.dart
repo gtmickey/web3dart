@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:web3dart/json_rpc.dart';
 import 'package:web3dart/provider.dart';
@@ -21,19 +22,31 @@ final class GTHTTPProvider extends Provider {
         'params': params,
       },
     ).then((value) {
-      return (value['data'] as Map).cast();
+      if(value['data'] is String) {
+        return jsonDecode(value['data']) as Map;
+      } else {
+        return (value['data'] as Map).cast();
+      }
     });
     if (data.containsKey('error')) {
       final error = data['error'];
-
-      final code = error['code'] as int;
+      final code;
+      if(error['code'] is String) {
+        code = int.parse(error['code']);
+      } else {
+        code = error['code'] as int;
+      }
       final message = error['message'] as String;
       final errorData = error['data'];
 
       throw RPCError(code, message, errorData);
     }
-
-    final id = data['id'] as int;
+    final id;
+    if(data['id'] is String) {
+        id = int.parse(data['id']);
+      } else {
+        id = data['id'] as int;
+      }
     final result = data['result'];
     return RPCResponse(id, result);
   }
