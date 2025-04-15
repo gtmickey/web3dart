@@ -66,10 +66,12 @@ Uint8List intToBytes(BigInt number) => p_utils.encodeBigInt(number);
 
 ///Takes the hexadecimal input and creates a [BigInt].
 BigInt hexToInt(String hex) {
+  if(hex.startsWith('-')) return BigInt.zero;
   return BigInt.parse(strip0x(hex), radix: 16);
 }
 
 /// Converts the hexadecimal input and creates an [int].
 int hexToDartInt(String hex) {
+  if(hex.startsWith('-')) return 0;
   return int.parse(strip0x(hex), radix: 16);
 }
